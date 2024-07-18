@@ -4,21 +4,22 @@
   "version": "1.0",
   "description": "A timer extension to help you focus during study sessions",
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "public/popup.html"
   },
   "permissions": [
     "storage",
     "alarms",
-    "activeTab"
+    "activeTab",
+    "identity"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "src/background.js"
   },
   "web_accessible_resources": [{
-    "resources": ["reminder_sound.mp3", "session_end_sound.mp3"],
+    "resources": ["assets/reminder_sound.mp3", "assets/session_end_sound.mp3"],
     "matches": ["<all_urls>"]
   }],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; media-src 'self'"
+    "extension_pages": "script-src 'self'; object-src 'self'; media-src 'self'; connect-src 'self' https://your-api-endpoint.com"
   }
 }
