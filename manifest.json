@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Focus Timer Extension",
+  "version": "1.0",
+  "description": "A timer extension to help you focus during study sessions",
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "permissions": [
+    "storage",
+    "alarms",
+    "activeTab"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "web_accessible_resources": [{
+    "resources": ["reminder_sound.mp3", "session_end_sound.mp3"],
+    "matches": ["<all_urls>"]
+  }],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; media-src 'self'"
+  }
+}
