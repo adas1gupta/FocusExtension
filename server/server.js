@@ -7,6 +7,15 @@ const cors = require('cors');
 
 const app = express();
 
+// Basic rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100 // limit each IP to 100 requests per windowMs
+});
+
+// Apply rate limiter to all requests
+app.use(limiter);
+
 app.use(cors({
   origin: '*',  // Be more specific in production
   methods: ['POST']

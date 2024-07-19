@@ -33,6 +33,51 @@ function generateUniqueId() {
   });
 }
 
+function storeFailedRequest(data) {
+  chrome.storage.local.get({failedRequests: []}, function(result) {
+    let failedRequests = result.failedRequests;
+    failedRequests.push({
+      data: data,
+      timestamp: new Date().getTime()
+    });
+    chrome.storage.local.set({failedRequests: failedRequests}, function() {
+      console.log('Failed request stored');
+    });
+  });
+}
+
+async function anonymizeData(data) {
+  // Create a copy of the data to avoid modifying the original
+  let anonymizedData = { ...data };
+  
+  // Remove or hash any personally identifiable information
+  if (anonymizedData.installationId) {
+    anonymizedData.installationId = await hashString(anonymizedData.installationId);
+  }
+  
+  // Round time to nearest hour to reduce precision
+  if (anonymizedData.timeOfDayStarted) {
+    let date = new Date(anonymizedData.timeOfDayStarted);
+    date.setMinutes(0, 0, 0);
+    anonymizedData.timeOfDayStarted = date.toISOString();
+  }
+  
+  // Round duration to nearest minute
+  if (anonymizedData.duration) {
+    anonymizedData.duration = Math.round(anonymizedData.duration / 60) * 60;
+  }
+  
+  return anonymizedData;
+}
+
+async function hashString(str) {
+  const utf8 = new TextEncoder().encode(str);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', utf8);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex;
+}
+
 function sendAnalytics(data) {
   chrome.storage.local.get(['installationId', 'dailyStats'], (result) => {
     const today = new Date().toDateString();
@@ -43,7 +88,7 @@ function sendAnalytics(data) {
     dailyStats[today].studySessions += (data.sessionType === 'study' ? 1 : 0);
     dailyStats[today].completedSessions += 1;
     dailyStats[today].startedSessions += 1;
-
+    
     const analyticsData = {
       ...data,
       installationId: result.installationId,
@@ -51,8 +96,18 @@ function sendAnalytics(data) {
       completionRate: dailyStats[today].completedSessions / dailyStats[today].startedSessions
     };
 
+    const anonymizedData = anonymizeData(analyticsData);
+    
+    fetch('http://localhost:3000/analytics', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(anonymizedData),
+    })
+    
     chrome.storage.local.set({ dailyStats });
-
+    
     fetch('http://localhost:3000/analytics', {
       method: 'POST',
       headers: {
@@ -62,11 +117,81 @@ function sendAnalytics(data) {
     })
     .then(response => {
       if (!response.ok) {
-        throw new Error('Network response was not ok');
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-      return response.text();  // Change this from response.json() to response.text()
+      return response.json();
     })
     .then(data => console.log('Analytics sent successfully:', data))
-    .catch((error) => console.error('Error sending analytics:', error));
+    .catch((error) => {
+      console.error('Error sending analytics:', error);
+      storeFailedRequest(analyticsData);
+    });
   });
 }
+
+function resendFailedRequests() {
+  chrome.storage.local.get({failedRequests: []}, function(result) {
+    let failedRequests = result.failedRequests;
+    if (failedRequests.length === 0) {
+      console.log('No failed requests to resend');
+      return;
+    }
+
+    console.log(`Attempting to resend ${failedRequests.length} failed requests`);
+
+    let successfulRequests = [];
+
+    failedRequests.forEach((request, index) => {
+      fetch('http://localhost:3000/analytics', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request.data),
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('Failed request resent successfully:', data);
+        successfulRequests.push(index);
+      })
+      .catch((error) => {
+        console.error('Error resending failed request:', error);
+      })
+      .finally(() => {
+        if (index === failedRequests.length - 1) {
+          // Remove successful requests from storage
+          failedRequests = failedRequests.filter((_, i) => !successfulRequests.includes(i));
+          chrome.storage.local.set({failedRequests: failedRequests}, function() {
+            console.log(`${successfulRequests.length} failed requests resent successfully`);
+          });
+        }
+      });
+    });
+  });
+}
+
+// Attempt to resend failed requests every hour
+chrome.alarms.create('resendFailedRequests', { periodInMinutes: 60 });
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'resendFailedRequests') {
+    resendFailedRequests();
+  }
+});
+
+// Also attempt to resend failed requests when the extension starts
+chrome.runtime.onStartup.addListener(resendFailedRequests);
+
+function debugLog(message) {
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[DEBUG] ${message}`);
+  }
+}
+
+// Use it in your code
+debugLog(`Sending anonymized data: ${JSON.stringify(anonymizedData)}`);
