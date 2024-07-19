@@ -3,6 +3,7 @@ let timeLeft;
 let isStudySession = true;
 let isPaused = true;
 let reminderTimer;
+let sessionStartTime;
 
 const timerDisplay = document.getElementById('timer');
 const startBtn = document.getElementById('startBtn');
@@ -17,22 +18,8 @@ function startTimer() {
   if (isPaused) {
     isPaused = false;
     setTimerDisplay();
-    const startTime = Date.now();
-    timer = setInterval(() => {
-      updateTimer();
-      if (timeLeft === 0) {
-        const endTime = Date.now();
-        const sessionDuration = (endTime - startTime) / 1000; // in seconds
-        sendAnalytics({
-          sessionType: isStudySession ? 'study' : 'break',
-          duration: sessionDuration,
-          reminderInterval: parseInt(reminderIntervalInput.value),
-          reminderVolume: parseFloat(reminderVolumeInput.value),
-          dayOfWeek: new Date().getDay(),
-          hourOfDay: new Date().getHours()
-        });
-      }
-    }, 1000);
+    sessionStartTime = Date.now();
+    timer = setInterval(updateTimer, 1000);
     const reminderInterval = parseInt(reminderIntervalInput.value);
     chrome.runtime.sendMessage({ 
       command: 'startReminder', 
@@ -49,6 +36,7 @@ function pauseTimer() {
   clearInterval(timer);
   stopReminderSound();
   chrome.runtime.sendMessage({ command: 'stopReminder' });
+  pauseCount++;
 }
 
 function resetTimer() {
@@ -67,6 +55,7 @@ function updateTimer() {
     }
     if (timeLeft === 0) {
       stopReminderSound();
+      sendAnalytics();
       setTimeout(switchSession, 1000);
     }
   }
@@ -80,6 +69,7 @@ function switchSession() {
   } else {
     startReminderSound();
   }
+  sessionStartTime = Date.now();
 }
 
 function setTimerDisplay() {
@@ -116,14 +106,35 @@ function playReminderSound() {
     const audio = new Audio('../assets/reminder_sound.mp3');
     audio.volume = reminderVolume || 1;
     audio.play();
+    reminderSoundCount++;
   });
 }
 
-function sendAnalytics(sessionData) {
+let pauseCount = 0;
+let reminderSoundCount = 0;
+
+function sendAnalytics() {
+  const sessionDuration = (Date.now() - sessionStartTime) / 1000; // in seconds
+  const analyticsData = {
+    sessionType: isStudySession ? 'study' : 'break',
+    duration: sessionDuration,
+    reminderInterval: parseInt(reminderIntervalInput.value),
+    reminderVolume: parseFloat(reminderVolumeInput.value),
+    dayOfWeek: new Date().getDay(),
+    hourOfDay: new Date().getHours(),
+    timeOfDayStarted: new Date(sessionStartTime).toTimeString(),
+    pauseFrequency: pauseCount,
+    reminderSoundCount: reminderSoundCount
+  };
+  
   chrome.runtime.sendMessage({
     command: 'sendAnalytics',
-    data: sessionData
+    data: analyticsData
   });
+
+  // Reset counters
+  pauseCount = 0;
+  reminderSoundCount = 0;
 }
 
 // Event listeners

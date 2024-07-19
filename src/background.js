@@ -34,21 +34,39 @@ function generateUniqueId() {
 }
 
 function sendAnalytics(data) {
-  chrome.storage.local.get('installationId', (result) => {
+  chrome.storage.local.get(['installationId', 'dailyStats'], (result) => {
+    const today = new Date().toDateString();
+    const dailyStats = result.dailyStats || {};
+    if (!dailyStats[today]) {
+      dailyStats[today] = { studySessions: 0, completedSessions: 0, startedSessions: 0 };
+    }
+    dailyStats[today].studySessions += (data.sessionType === 'study' ? 1 : 0);
+    dailyStats[today].completedSessions += 1;
+    dailyStats[today].startedSessions += 1;
+
     const analyticsData = {
       ...data,
-      installationId: result.installationId
+      installationId: result.installationId,
+      dailyStudySessions: dailyStats[today].studySessions,
+      completionRate: dailyStats[today].completedSessions / dailyStats[today].startedSessions
     };
-    
-    fetch('https://your-api-endpoint.com/analytics', {
+
+    chrome.storage.local.set({ dailyStats });
+
+    fetch('http://localhost:3000/analytics', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(analyticsData),
     })
-    .then(response => response.json())
-    .then(data => console.log('Analytics sent successfully'))
-    .catch((error) => console.error('Error:', error));
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      return response.text();  // Change this from response.json() to response.text()
+    })
+    .then(data => console.log('Analytics sent successfully:', data))
+    .catch((error) => console.error('Error sending analytics:', error));
   });
 }

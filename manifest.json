@@ -9,8 +9,10 @@
   "permissions": [
     "storage",
     "alarms",
-    "activeTab",
-    "identity"
+    "activeTab"
+  ],
+  "host_permissions": [
+    "http://localhost:3000/*"
   ],
   "background": {
     "service_worker": "src/background.js"
@@ -20,6 +22,6 @@
     "matches": ["<all_urls>"]
   }],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; media-src 'self'; connect-src 'self' https://your-api-endpoint.com"
+    "extension_pages": "script-src 'self'; connect-src 'self' http://localhost:3000; object-src 'self'"
   }
 }
