@@ -184,7 +184,24 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
-// Also attempt to resend failed requests when the extension starts
-chrome.runtime.onStartup.addListener(resendFailedRequests);
+// At the end of background.js, replace the direct addListener call with this:
+function setupOnStartupListener() {
+  if (chrome.runtime && chrome.runtime.onStartup) {
+    chrome.runtime.onStartup.addListener(resendFailedRequests);
+  }
+}
 
-module.exports = { generateUniqueId }
+setupOnStartupListener();
+
+module.exports = {
+  startReminder,
+  stopReminder,
+  generateUniqueId,
+  storeFailedRequest,
+  anonymizeData,
+  hashString,
+  sendAnalytics,
+  resendFailedRequests,
+  setupOnStartupListener,
+  
+};
