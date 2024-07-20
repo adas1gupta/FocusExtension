@@ -1,28 +1,33 @@
-const { startTimer, pauseTimer, resetTimer } = require('../../src/timer');
+// tests/unit/timer.test.js
+const { startTimer, pauseTimer, resetTimer, getTimeLeft } = require('../../src/timer');
 
-beforeEach(() => {
-  jest.useFakeTimers();
-});
+jest.useFakeTimers();
 
-afterEach(() => {
-  jest.clearAllTimers();
-});
+describe('Timer', () => {
+  beforeEach(() => {
+    jest.clearAllTimers();
+  });
 
-test('Timer starts correctly', () => {
-  startTimer();
-  expect(setInterval).toHaveBeenCalledTimes(1);
-  expect(setInterval).toHaveBeenLastCalledWith(expect.any(Function), 1000);
-});
+  test('startTimer decrements time', () => {
+    startTimer(60);
+    expect(getTimeLeft()).toBe(60);
+    jest.advanceTimersByTime(1000);
+    expect(getTimeLeft()).toBe(59);
+  });
 
-test('Timer pauses correctly', () => {
-  startTimer();
-  pauseTimer();
-  expect(clearInterval).toHaveBeenCalledTimes(1);
-});
+  test('pauseTimer stops the timer', () => {
+    startTimer(60);
+    jest.advanceTimersByTime(5000);
+    pauseTimer();
+    const timeLeftAfterPause = getTimeLeft();
+    jest.advanceTimersByTime(5000);
+    expect(getTimeLeft()).toBe(timeLeftAfterPause);
+  });
 
-test('Timer resets correctly', () => {
-  startTimer();
-  resetTimer();
-  expect(clearInterval).toHaveBeenCalledTimes(1);
-  expect(setInterval).toHaveBeenCalledTimes(1);
+  test('resetTimer sets time back to initial duration', () => {
+    startTimer(60);
+    jest.advanceTimersByTime(10000);
+    resetTimer(60);
+    expect(getTimeLeft()).toBe(60);
+  });
 });

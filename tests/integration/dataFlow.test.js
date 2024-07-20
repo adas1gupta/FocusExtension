@@ -1,3 +1,5 @@
+import { chrome } from 'jest-chrome';
+global.chrome = chrome;
 const { sendAnalytics, anonymizeData } = require('../../src/background');
 
 // Mock the fetch function

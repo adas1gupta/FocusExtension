@@ -78,8 +78,8 @@ async function hashString(str) {
   return hashHex;
 }
 
-function sendAnalytics(data) {
-  chrome.storage.local.get(['installationId', 'dailyStats'], (result) => {
+async function sendAnalytics(data) {
+  chrome.storage.local.get(['installationId', 'dailyStats'], async (result) => {
     const today = new Date().toDateString();
     const dailyStats = result.dailyStats || {};
     if (!dailyStats[today]) {
@@ -96,7 +96,7 @@ function sendAnalytics(data) {
       completionRate: dailyStats[today].completedSessions / dailyStats[today].startedSessions
     };
 
-    const anonymizedData = anonymizeData(analyticsData);
+    const anonymizedData = await anonymizeData(analyticsData);
     
     fetch('http://localhost:3000/analytics', {
       method: 'POST',
@@ -187,11 +187,4 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 // Also attempt to resend failed requests when the extension starts
 chrome.runtime.onStartup.addListener(resendFailedRequests);
 
-function debugLog(message) {
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`[DEBUG] ${message}`);
-  }
-}
-
-// Use it in your code
-debugLog(`Sending anonymized data: ${JSON.stringify(anonymizedData)}`);
+module.exports = { generateUniqueId }
